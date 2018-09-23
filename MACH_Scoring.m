@@ -30,8 +30,9 @@ ft2m = in2m * 12; %feet to meters
 
 %% =========================== Varibles ===================================== %%
 
-AR = 4:8;
-bombs = 4:8;
+n = 25;
+AR = linspace(2, 10, n);
+bombs = linspace(4, 20, n);
 [AR, bombs] = meshgrid(AR, bombs);
 
 g = 9.81; %m/s^2
@@ -42,10 +43,10 @@ weight_fuselage_intial = 10;  % fuse empty  Newtons
 weight_fuselage = weight_fuselage_intial; % Newtons
 
 %wing linear density - weight of the wing per inch
-dens_lin_wing = 0.2875 * 0.0283495 * g / in2m;  % density N/m
+dens_lin_wing = (0.2875 * 0.0283495 * g / in2m)*2;  % density N/m
 
-thrust_to_weight = .7;
-Takeoff_velocity = 12; %m/s
+thrust_to_weight = 1;
+Takeoff_velocity = 6; %m/s
 CD_0 = 0.06;
 
 e = 0.80; %oswald efficiency
@@ -66,13 +67,13 @@ weight_propulsion = 12; % inital guess for Propulsion System weight in Newtons
 %% ================ Data for Propulsion System Weight ======================= %%
 
 thrust_data = [0.5, 1, 2, 3, 4, 5, 15]*4.44822; % Thrust needed in Newtons
-weight_data =[9, 12, 25.9, 37.5, 42, 55, 113]*0.28; % Weight of prop. sys. in N
+weight_data =[9, 12, 25.9, 37.5, 42, 55, 113]*0.28*2; % Weight of prop. sys. in N
 
 prop_weight_coef = polyfit(thrust_data, weight_data, 1 );
 
 
 %% ========================= Size Aircraft ================================= %%
-% Iterative method to solve for wing_ref_area, AR, weight_propulsion, MTOW, weight_empty
+% Iterative method to solve for wing_ref_area, weight_propulsion, MTOW, weight_empty
 % Note: this method is not very sophisticated and prone to error 
 
 for i = 0:1000
@@ -104,7 +105,6 @@ for i = 0:1000
         ( polyval(prop_weight_coef, thrust) - weight_propulsion) ;
 
     end
-    
    
     Cl_stall = airfoil_Cl_max * AR ./ (AR + 2); % finite wing correction 
     Cl_takeoff = Cl_stall/(1.1^2); % equation from 481
@@ -121,53 +121,34 @@ for i = 0:1000
     end
 
     wing_ref_area = wing_ref_area + 0.1*(wing_area_req - wing_ref_area);  %m^2
-
-
-    % % AR = (span_wing.*0.0254).^2./wing_ref_area*2;
-    % % EW = (Weight_Fuselage + 1 * 0.0283495 * passengers) + (dens_lin_wing* span_wing).*(span_wing./AR / 12 * 0.5 + 0.5) + P;
-    % % MTOW = (EW+passengers*2*0.0283495)*g
-
-
-    % if sum(sum( abs( (span_wing.*0.0254).^2./wing_ref_area*2 - AR) )) < 1e-2
-    %     disp('break')
-    %     break
-    % end
-    % i
 end
+
 %Takeoff Distance: Raymer 487
-%Cl_takeoff=Cl_takeoff+5./180.*pi.*Cl_takeoff
-mu = 0.02
+mu = 0.02 
 K = 1./(pi*e*AR)
 Kt = thrust_to_weight-mu
 Ka = air_density./2./(MTOW./wing_ref_area).*(mu.*Cl_takeoff-CD_0-K.*Cl_takeoff.^2)
 
-takeoff_dist = (1/2/g./Ka.*log((Kt+Ka.*Takeoff_velocity.^2)./Kt))*3.28084;
-% return
-AR( AR<= 0) = 0.1
-AR(isnan(AR)==1) = 0.1
-MTOW( MTOW<= 0) = 1e6
+takeoff_dist = (1/2/g./Ka.*log((Kt+Ka.*Takeoff_velocity.^2)./Kt))*3.28084; % answer in ft converted from m
+
+%change negative to a very large number and NaN values to a very small number
+MTOW(MTOW<= 0) = 1e6
 MTOW(isnan(MTOW)==1) = 0.1
-wing_ref_area( wing_ref_area<= 0) = inf
-wing_ref_area( isnan(wing_ref_area)== 1) = 0.01
+
+%change negative to a very large number and NaN values to a very small number
+wing_ref_area(wing_ref_area<= 0) = inf
+wing_ref_area(isnan(wing_ref_area)== 1) = 0.01
 
 
 % %% ======================= Calculations ================================ %%
 
-
-% calculate wing_ref_area based on throwing speed 
-
-% span_wingpan = (AR .* wing_ref_area).^0.5;
-% Chord_root = wing_ref_area./span_wingpan/(1+lambda)*2;
-
-% Chord = sqrt(wing_ref_area./AR); %meters
-% span_wingpan = wing_ref_area./Chord; %wingspan in meters
-%     Aspect_R = span_wingpan./Chord
-
-
+%Coefficients for a rough dynamic thrust curve
+%T = T_2 * v^2 + T_1 * v + T_0
 T_0 = thrust_to_weight*MTOW;
 T_1 = -0.060;
 T_2 = -0.015;
 
+v_cruise = zeros(size(bombs));
 
 for j = [1:size(bombs,1)]
     j
@@ -179,28 +160,24 @@ for j = [1:size(bombs,1)]
 
         if imag(v_cruise(j,i)) || real(v_cruise(j,i)) < 0
             v_cruise(j,i) = 0;
-%             disp('yes')
         end
         
     end
 end
 
-laps = (v_cruise)./(lap_length/3.28) * 60 * 10;
-t_3laps = 3*(lap_length/3.28)./v_cruise*0.8;
-RAC = 1
-
-
+laps = (v_cruise)./(lap_length/3.28) * 60 * 10; %laps in 10 minutes
+t_3laps = 3*(lap_length/3.28)./v_cruise*0.8; %time for 3 laps
 
 %only account for well define aircraft
-for j = [1:size(bombs,1)]
-    for i = [1:size(span_wing,2)]
-        if(j*3-45 > i)
-            t_3laps(j,i) = 100000000;
-            laps(j,i) = 0;
-            
-        end
-    end
-end        
+%for j = [1:size(bombs,1)]
+%    for i = [1:size(span_wing,2)]
+%        if(j*3-45 > i)
+%            t_3laps(j,i) = 100000000;
+%            laps(j,i) = 0;
+%            
+%        end
+%    end
+%end        
 
 v_cruise(v_cruise>25) = 25;
 
@@ -211,30 +188,34 @@ M1(t_3laps/60 < 5) = 1;
 M2 = 1+min(min(t_3laps))./t_3laps; %mission 2 score
 
 M3 = zeros(size(bombs));
-M3(10./(t_3laps./3./60) >bombs) = bombs(10./(t_3laps./3./60) >bombs)
-%M3(bombs>10./(t_3laps./3./60)) = floor(bombs>10./(t_3laps./3./60))
+for i = 1:size(bombs)
+    for j = 1:size(bombs)
+        if bombs(i, j) > laps(i, j)
+            M3(i,j) = 2 + laps(i, j);
+        else
+            M3(i,j) = 2 + bombs(i, j);
+        end
+    end
+end
 
-score = (M1 + M2 + M3)./RAC;
+score = (M1 + M2 + M3);
 
-% score(M2 == 0) = 0;
-% maximum = max(max(score));
-% score = score./maximum;
 % %% ========================== Plotting ================================= %%
 
 figure
 shading interp;
-[ANALY2 , ANALY2] = contourf( bombs, span_wing, score);
+[ANALY2 , ANALY2] = contourf( bombs, AR, score);
 set(ANALY2,'edgecolor','none');
 
 title('Scoring Analysis','FontSize',23);
 
 
-ylabel('b_s','FontSize',20);
-xlabel('passengers','FontSize',20);
+ylabel('AR','FontSize',20);
+xlabel('bombs','FontSize',20);
 hold on 
 
 max_score = max(max(score));
-scatter(bombs(score== max_score), span_wing(score== max_score),250, 'ko','filled')
+scatter(bombs(score== max_score), AR(score== max_score),250, 'ko','filled')
 
 c = colorbar;
 c.Label.String = 'Normalized Score';
