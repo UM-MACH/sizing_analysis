@@ -134,6 +134,14 @@ for i = 0:1000
     % end
     % i
 end
+%Takeoff Distance: Raymer 487
+%Cl_takeoff=Cl_takeoff+5./180.*pi.*Cl_takeoff
+mu = 0.02
+K = 1./(pi*e*AR)
+Kt = thrust_to_weight-mu
+Ka = air_density./2./(MTOW./wing_ref_area).*(mu.*Cl_takeoff-CD_0-K.*Cl_takeoff.^2)
+
+takeoff_dist = (1/2/g./Ka.*log((Kt+Ka.*Takeoff_velocity.^2)./Kt))*3.28084;
 % return
 AR( AR<= 0) = 0.1
 AR(isnan(AR)==1) = 0.1
@@ -179,7 +187,7 @@ end
 
 laps = (v_cruise)./(lap_length/3.28) * 60 * 10;
 t_3laps = 3*(lap_length/3.28)./v_cruise*0.8;
-RAC = weight_empty*0.224809.*span_wing;
+RAC = 1
 
 
 
@@ -200,10 +208,14 @@ v_cruise(v_cruise>25) = 25;
 M1 = zeros(size(bombs));
 M1(t_3laps/60 < 5) = 1;
 
-M2 = 2*bombs./(t_3laps)./max(max(bombs./(t_3laps))); %mission 2 score
-M3 =4*(bombs/2.*(bombs*2/2).*laps)./max(max((bombs/2.*(bombs*2/2).*laps))) + 2;
+M2 = 1+min(min(t_3laps))./t_3laps; %mission 2 score
+
+M3 = zeros(size(bombs));
+M3(10./(t_3laps./3./60) >bombs) = bombs(10./(t_3laps./3./60) >bombs)
+%M3(bombs>10./(t_3laps./3./60)) = floor(bombs>10./(t_3laps./3./60))
 
 score = (M1 + M2 + M3)./RAC;
+
 % score(M2 == 0) = 0;
 % maximum = max(max(score));
 % score = score./maximum;
@@ -228,7 +240,7 @@ c = colorbar;
 c.Label.String = 'Normalized Score';
 
 fprintf('Max Score %.2f\n',max_score);
-fprintf('RAC %.2f\n', RAC(score== max_score));
+% fprintf('RAC %.2f\n', RAC(score== max_score));
 fprintf('passengers %.2f\n', bombs(score== max_score));
 fprintf('span_wing [in]%.2f\n', span_wing(score== max_score));
 fprintf('MTOW [N]%.2f\n', MTOW(score== max_score));
@@ -242,13 +254,13 @@ fprintf('Cl %.2f\n', Cl_takeoff(score== max_score));
 
 
 
-figure
-contourf( bombs, span_wing, RAC);
-title('RAC','FontSize',23);
-ylabel('b_s','FontSize',20);
-xlabel('passengers','FontSize',20);
-hold on 
-c = colorbar;
+% figure
+% contourf( bombs, span_wing, RAC);
+% title('RAC','FontSize',23);
+% ylabel('b_s','FontSize',20);
+% xlabel('passengers','FontSize',20);
+% hold on 
+% c = colorbar;
 
 
 % figure
