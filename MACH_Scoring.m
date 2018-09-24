@@ -30,7 +30,7 @@ ft2m = in2m * 12; %feet to meters
 
 %% =========================== Varibles ===================================== %%
 
-n = 25;
+n = 10;
 AR = linspace(2, 10, n);
 bombs = linspace(4, 20, n);
 [AR, bombs] = meshgrid(AR, bombs);
@@ -40,37 +40,35 @@ num_wings = 1; %wings
 
 weight_fuselage_intial = 10;  % fuse empty  Newtons
 
-weight_fuselage = weight_fuselage_intial; % Newtons
+weight_fuselage = weight_fuselage_intial; % Newtons 
 
 %wing linear density - weight of the wing per inch
-dens_lin_wing = (0.2875 * 0.0283495 * g / in2m)*2;  % density N/m
+dens_lin_wing = (0.2875 * 0.0283495 * g / in2m);  % density N/m
 
 thrust_to_weight = 1;
-Takeoff_velocity = 6; %m/s
+Takeoff_velocity = 7; %m/s
 CD_0 = 0.06;
 
 e = 0.80; %oswald efficiency
 lap_length = 5000; % ft
-airfoil_Cl_max = 1.4;
-
+airfoil_Cl_max = 1.6
+delta_Cl = 0.9*0.7*0.5*cos(-10*pi/180) %delta cl due to flaps: Raymer 279, 0.5 = Ratio of flapped area and total area
 %historical data
 air_density = 1.17; %air (kg/m^3)
-
 %symbolic variables
 v = sym('v','real');
 
 wing_ref_area = 0.8; % inital guess for wing area (m^2)
-weight_propulsion = 12; % inital guess for Propulsion System weight in Newtons
+weight_propulsion = 24; % inital guess for Propulsion System weight in Newtons
 
 
 
 %% ================ Data for Propulsion System Weight ======================= %%
 
 thrust_data = [0.5, 1, 2, 3, 4, 5, 15]*4.44822; % Thrust needed in Newtons
-weight_data =[9, 12, 25.9, 37.5, 42, 55, 113]*0.28*2; % Weight of prop. sys. in N
+weight_data =[9, 12, 25.9, 37.5, 42, 55, 113]*0.28; % Weight of prop. sys. in N
 
 prop_weight_coef = polyfit(thrust_data, weight_data, 1 );
-
 
 %% ========================= Size Aircraft ================================= %%
 % Iterative method to solve for wing_ref_area, weight_propulsion, MTOW, weight_empty
@@ -83,7 +81,6 @@ for i = 0:1000
 
     % wing weight in Newtons 
     weight_wings = num_wings*(span_wing*dens_lin_wing);
-
     
     for k = 0:100
 
@@ -107,12 +104,12 @@ for i = 0:1000
     end
    
     Cl_stall = airfoil_Cl_max * AR ./ (AR + 2); % finite wing correction 
-    Cl_takeoff = Cl_stall/(1.1^2); % equation from 481
+    Cl_takeoff = Cl_stall/(1.1^2)+delta_Cl; % equation from 481
     wing_area_req = 2*MTOW./(Cl_takeoff .* air_density * (Takeoff_velocity^2)); %required wing area
 
 
     err_wing_ref_area = sum(sum(abs(wing_ref_area - wing_area_req)));
-    fprintf('err  %d  %f\n ', i, err_wing_ref_area);
+%    fprintf('err  %d  %f\n ', i, err_wing_ref_area);
 
     if err_wing_ref_area < 1e-8
         fprintf('wing_ref_area converged after %d\n',i);
@@ -122,7 +119,6 @@ for i = 0:1000
 
     wing_ref_area = wing_ref_area + 0.1*(wing_area_req - wing_ref_area);  %m^2
 end
-
 %Takeoff Distance: Raymer 487
 mu = 0.02 
 K = 1./(pi*e*AR)
@@ -201,7 +197,7 @@ end
 score = (M1 + M2 + M3);
 
 % %% ========================== Plotting ================================= %%
-
+span_wing = span_wing/in2m
 figure
 shading interp;
 [ANALY2 , ANALY2] = contourf( bombs, AR, score);
